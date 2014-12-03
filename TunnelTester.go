@@ -58,10 +58,13 @@ func main() {
 	}
 
 	//TODO find a more useful place for this.
-	var pendingConns *psiphon.Conns
+	pendingConns := new(psiphon.Conns)
+	localHttpProxyAddress := "127.0.0.1"
+	localHttpProxyPort := config.LocalHttpProxyPort
+	useProxy := false
 
 	site := "http://vl7.net/ip"
-	untunneledCheck, err := GetWebResource(site)
+	untunneledCheck, err := GetWebResource(site, useProxy, localHttpProxyAddress, localHttpProxyPort)
 	if err != nil {
 		fmt.Println("Error getting resource: %s", err)
 	}
@@ -86,13 +89,13 @@ func main() {
 			log.Fatalf("error initializing local HTTP proxy: %s", err)
 		}
 		defer httpProxy.Close()
+		useProxy = true
 
-		tunneledCheck, err := GetWebResource(site)
+		tunneledCheck, err := GetWebResource(site, useProxy, localHttpProxyAddress, localHttpProxyPort)
 		if err != nil {
 			fmt.Println("Error getting resource: ", err)
 		}
 		fmt.Println("Tunneled IP Check: ", string(tunneledCheck))
-
 	} else if serverEntryFilename != "" {
 		log.Println("Attempting to use server entry from file")
 		serverEntryConfig, err := LoadServerEntryConfig(serverEntryFilename)
