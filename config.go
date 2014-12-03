@@ -21,7 +21,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"psiphon"
 	"strings"
@@ -56,9 +55,6 @@ func LoadServerEntryConfig(filename string) (remoteServerList *psiphon.RemoteSer
 		if err != nil {
 			return nil, psiphon.ContextError(err)
 		}
-
-		//TODO Remove this
-		fmt.Println(serverEntry)
 		//TODO Evaluate this, probably not needed
 		//     StoreServerEntry puts the serverEntry into a sqlite db.
 		err = psiphon.StoreServerEntry(serverEntry, true)

@@ -78,8 +78,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
-		// TODO: get rid of this
-		fmt.Println("Decoded Server Entry: ", decodedServerString)
 
 		tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerString)
 		if err != nil {
@@ -121,9 +119,4 @@ func main() {
 			*/
 		}
 	}
-
-	// test print
-	fmt.Println(config.PropagationChannelId)
-
-	//serverEntry is an encoded string and needs to be decoded
 }
