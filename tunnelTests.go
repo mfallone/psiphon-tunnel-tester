@@ -17,6 +17,8 @@ func GetSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err er
 			log.Fatalf("Could not parse url: ", err)
 		}
 		client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+	} else {
+		client = &http.Client{}
 	}
 
 	req, err := http.NewRequest("Get", site, nil)
