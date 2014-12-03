@@ -59,12 +59,14 @@ func main() {
 
 	//TODO find a more useful place for this.
 	pendingConns := new(psiphon.Conns)
-	localHttpProxyAddress := "127.0.0.1"
-	localHttpProxyPort := config.LocalHttpProxyPort
-	useProxy := false
 
 	site := "http://vl7.net/ip"
-	untunneledCheck, err := GetWebResource(site, useProxy, localHttpProxyAddress, localHttpProxyPort)
+
+	proxyConfig := new(ProxyConfig)
+	proxyConfig.httpProxyAddress = "127.0.0.1"
+	proxyConfig.httpProxyPort = config.LocalHttpProxyPort
+	proxyConfig.useHttpProxy = false
+	untunneledCheck, err := GetSiteResource(site, proxyConfig)
 	if err != nil {
 		fmt.Println("Error getting resource: %s", err)
 	}
@@ -89,9 +91,9 @@ func main() {
 			log.Fatalf("error initializing local HTTP proxy: %s", err)
 		}
 		defer httpProxy.Close()
-		useProxy = true
+		proxyConfig.useHttpProxy = true
 
-		tunneledCheck, err := GetWebResource(site, useProxy, localHttpProxyAddress, localHttpProxyPort)
+		tunneledCheck, err := GetSiteResource(site, proxyConfig)
 		if err != nil {
 			fmt.Println("Error getting resource: ", err)
 		}

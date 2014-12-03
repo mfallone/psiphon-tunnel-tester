@@ -8,16 +8,15 @@ import (
 	"net/url"
 )
 
-func GetWebResource(site string, useProxy bool, localHttpProxyAddress string, localHttpProxyPort int) (body []byte, err error) {
+func GetSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err error) {
 	var client *http.Client
-	if useProxy == true {
-		proxyUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", localHttpProxyAddress, localHttpProxyPort))
+
+	if proxyConfig.useHttpProxy == true {
+		proxyUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", proxyConfig.httpProxyAddress, proxyConfig.httpProxyPort))
 		if err != nil {
 			log.Fatalf("Could not parse url: ", err)
 		}
 		client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
-	} else {
-		client = &http.Client{}
 	}
 
 	req, err := http.NewRequest("Get", site, nil)

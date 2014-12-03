@@ -27,6 +27,15 @@ import (
 	"strings"
 )
 
+type ProxyConfig struct {
+	httpProxyAddress  string
+	httpProxyPort     int
+	useHttpProxy      bool
+	socksProxyAddress string
+	socksProxyPort    int
+	useSocksProxy     bool
+}
+
 //TODO all of LoadServerEntryConfig.  Modelled after psiphon.LoadConfig
 
 func LoadServerEntryConfig(filename string) (remoteServerList *psiphon.RemoteServerList, err error) {
