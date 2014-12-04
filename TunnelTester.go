@@ -84,11 +84,11 @@ func main() {
 			log.Fatalf("Could not establish tunnel: %s", err)
 		}
 
-		httpProxy, err := psiphon.NewHttpProxy(config, tunnel)
+		_, err = psiphon.NewHttpProxy(config, tunnel)
 		if err != nil {
 			log.Fatalf("error initializing local HTTP proxy: %s", err)
 		}
-		defer httpProxy.Close()
+		//defer httpProxy.Close()
 		proxyConfig.useHttpProxy = true
 
 		tunneledCheck, err := GetSiteResource(site, proxyConfig)
