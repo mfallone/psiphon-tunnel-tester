@@ -45,7 +45,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 	if err != nil {
 		log.Println("Error getting resource: ", err)
 	}
-	log.Println("Tunneled IP Check: ", string(tunneledCheck))
+	log.Println("Tunneled IP: ", string(tunneledCheck))
 
 	// NewSession test for tunneled handhsake and connected requests.
 	_, err = psiphon.NewSession(config, tunnel)
@@ -55,6 +55,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 	return result, err
 }
 
+// Makes a Get request to a static site resource.
 func getSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err error) {
 	var client *http.Client
 
@@ -83,7 +84,5 @@ func getSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err er
 	if err != nil {
 		log.Fatalf("Could not read response body: %s", err)
 	}
-
-	log.Println("Body: ", string(body))
 	return body, nil
 }
