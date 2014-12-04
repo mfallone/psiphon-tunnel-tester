@@ -62,10 +62,10 @@ func main() {
 
 	site := "http://vl7.net/ip"
 
-	proxyConfig := new(ProxyConfig)
-	proxyConfig.httpProxyAddress = "127.0.0.1"
-	proxyConfig.httpProxyPort = config.LocalHttpProxyPort
-	proxyConfig.useHttpProxy = false
+	proxyConfig := &ProxyConfig{httpProxyAddress: "127.0.0.1",
+		httpProxyPort: config.LocalHttpProxyPort,
+		useHttpProxy:  false}
+
 	untunneledCheck, err := GetSiteResource(site, proxyConfig)
 	if err != nil {
 		fmt.Println("Error getting resource: %s", err)
@@ -96,6 +96,13 @@ func main() {
 			fmt.Println("Error getting resource: ", err)
 		}
 		fmt.Println("Tunneled IP Check: ", string(tunneledCheck))
+
+		// NewSession test for tunneled handhsake and connected requests.
+		_, err = psiphon.NewSession(config, tunnel)
+		if err != nil {
+			fmt.Println("Error getting new session: ", err)
+		}
+
 	} else if serverEntryFilename != "" {
 		log.Println("Attempting to use server entry from file")
 		serverEntryConfig, err := LoadServerEntryConfig(serverEntryFilename)
