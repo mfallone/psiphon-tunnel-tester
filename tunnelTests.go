@@ -10,14 +10,11 @@ import (
 	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
 )
 
-//TODO find a more useful place for this.
-var pendingConns *psiphon.Conns
-
-var ipcheck_site string
-
 // RunTests runs all tests to the server conatined in decodedServerEntry
 func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (result string, err error) {
-	ipcheck_site = "http://vl7.net/ip"
+	ipcheck_site := "http://vl7.net/ip"
+
+	pendingConns := new(psiphon.Conns)
 
 	proxyConfig := &ProxyConfig{httpProxyAddress: "127.0.0.1",
 		httpProxyPort: config.LocalHttpProxyPort,
