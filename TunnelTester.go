@@ -30,7 +30,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
@@ -57,50 +56,16 @@ func main() {
 		log.Fatalf("error loading configuration file: %s", err)
 	}
 
-	//TODO find a more useful place for this.
-	pendingConns := new(psiphon.Conns)
-
-	site := "http://vl7.net/ip"
-
-	proxyConfig := &ProxyConfig{httpProxyAddress: "127.0.0.1",
-		httpProxyPort: config.LocalHttpProxyPort,
-		useHttpProxy:  false}
-
-	untunneledCheck, err := GetSiteResource(site, proxyConfig)
-	if err != nil {
-		fmt.Println("Error getting resource: %s", err)
-	}
-	fmt.Println("Untunneled IP: ", string(untunneledCheck))
-
 	// Check for a server entry string at the cli.  It supercedes the other lists
 	if serverEntryString != "" {
 		decodedServerString, err := psiphon.DecodeServerEntry(serverEntryString)
 		if err != nil {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
-
-		tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerString)
+		//Run Tests
+		_, err = RunTests(config, decodedServerString)
 		if err != nil {
-			log.Fatalf("Could not establish tunnel: %s", err)
-		}
-
-		_, err = psiphon.NewHttpProxy(config, tunnel)
-		if err != nil {
-			log.Fatalf("error initializing local HTTP proxy: %s", err)
-		}
-		//defer httpProxy.Close()
-		proxyConfig.useHttpProxy = true
-
-		tunneledCheck, err := GetSiteResource(site, proxyConfig)
-		if err != nil {
-			fmt.Println("Error getting resource: ", err)
-		}
-		fmt.Println("Tunneled IP Check: ", string(tunneledCheck))
-
-		// NewSession test for tunneled handhsake and connected requests.
-		_, err = psiphon.NewSession(config, tunnel)
-		if err != nil {
-			fmt.Println("Error getting new session: ", err)
+			log.Fatalf("Could not run tunnel tests: ", err)
 		}
 
 	} else if serverEntryFilename != "" {

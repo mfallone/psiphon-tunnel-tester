@@ -6,9 +6,59 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+
+	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
 )
 
-func GetSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err error) {
+//TODO find a more useful place for this.
+var pendingConns *psiphon.Conns
+
+var ipcheck_site string
+
+// RunTests runs all tests to the server conatined in decodedServerEntry
+func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (result string, err error) {
+	ipcheck_site = "http://vl7.net/ip"
+
+	proxyConfig := &ProxyConfig{httpProxyAddress: "127.0.0.1",
+		httpProxyPort: config.LocalHttpProxyPort,
+		useHttpProxy:  false}
+
+	// Get the untunneled IP address
+	untunneledCheck, err := getSiteResource(ipcheck_site, proxyConfig)
+	if err != nil {
+		log.Println("Could not get site resource: ", err)
+	}
+	log.Println("Untunneled IP: ", string(untunneledCheck))
+
+	// Build a tunnel to a psiphon server
+	tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerEntry)
+	if err != nil {
+		log.Fatalf("Could not establish tunnel: %s", err)
+	}
+
+	// Setup new HTTP proxy. Close() is handled by HttpProxy.serve()
+	// and does not need to be called here.
+	_, err = psiphon.NewHttpProxy(config, tunnel)
+	if err != nil {
+		log.Fatalf("error initializing local HTTP proxy: %s", err)
+	}
+
+	proxyConfig.useHttpProxy = true
+	tunneledCheck, err := getSiteResource(ipcheck_site, proxyConfig)
+	if err != nil {
+		log.Println("Error getting resource: ", err)
+	}
+	log.Println("Tunneled IP Check: ", string(tunneledCheck))
+
+	// NewSession test for tunneled handhsake and connected requests.
+	_, err = psiphon.NewSession(config, tunnel)
+	if err != nil {
+		log.Println("Error getting new session: ", err)
+	}
+	return result, err
+}
+
+func getSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err error) {
 	var client *http.Client
 
 	if proxyConfig.useHttpProxy == true {
@@ -37,6 +87,6 @@ func GetSiteResource(site string, proxyConfig *ProxyConfig) (body []byte, err er
 		log.Fatalf("Could not read response body: %s", err)
 	}
 
-	fmt.Println("Body: %s", string(body))
+	log.Println("Body: ", string(body))
 	return body, nil
 }
