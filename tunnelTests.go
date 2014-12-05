@@ -12,7 +12,7 @@ import (
 
 // RunTests runs all tests to the server conatined in decodedServerEntry
 func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (result string, err error) {
-	ipcheck_site := "http://vl7.net/ip"
+	testsConfig := new(TestsConfig)
 
 	pendingConns := new(psiphon.Conns)
 
@@ -21,7 +21,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 		useHttpProxy:  false}
 
 	// Get the untunneled IP address
-	untunneledCheck, err := getSiteResource(ipcheck_site, proxyConfig)
+	untunneledCheck, err := getSiteResource(testsConfig.ipcheck_site, proxyConfig)
 	if err != nil {
 		log.Println("Could not get site resource: ", err)
 	}
@@ -41,7 +41,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 	}
 
 	proxyConfig.useHttpProxy = true
-	tunneledCheck, err := getSiteResource(ipcheck_site, proxyConfig)
+	tunneledCheck, err := getSiteResource(testsConfig.ipcheck_site, proxyConfig)
 	if err != nil {
 		log.Println("Error getting resource: ", err)
 	}
@@ -53,6 +53,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 		log.Println("Error getting new session: ", err)
 	}
 	return result, err
+
 }
 
 // Makes a Get request to a static site resource.

@@ -35,6 +35,11 @@ type ProxyConfig struct {
 	useSocksProxy     bool
 }
 
+type TestsConfig struct {
+	ipcheck_site   string
+	testfile_100MB string
+}
+
 //TODO all of LoadServerEntryConfig.  Modelled after psiphon.LoadConfig
 
 func LoadServerEntryConfig(filename string) (remoteServerList *psiphon.RemoteServerList, err error) {
@@ -64,4 +69,13 @@ func LoadServerEntryConfig(filename string) (remoteServerList *psiphon.RemoteSer
 	}
 	//TODO probably don't need to return remoteServerList
 	return remoteServerList, nil
+}
+
+func LoadTestsConfig(filename string) {
+	fileContents, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, psiphon.ContextError(err)
+	}
+
+	err = json.Unmarshal(fileContents)
 }
