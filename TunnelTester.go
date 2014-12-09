@@ -45,6 +45,9 @@ func main() {
 	var serverEntryString string
 	flag.StringVar(&serverEntryString, "server-entry", "", "encoded server entry")
 
+	var tasksConfigFilename string
+	flag.StringVar(&tasksConfigFilename, "tasks-config", "tasks.config", "Tests config file")
+
 	flag.Parse()
 
 	if configFilename == "" {
@@ -56,6 +59,17 @@ func main() {
 		log.Fatalf("error loading configuration file: %s", err)
 	}
 
+	if tasksConfigFilename == "" {
+		log.Fatalln("No tests file specified.  Set ARG -tests-config")
+	}
+	tasksConfig, err := LoadTasksConfig(tasksConfigFilename)
+	if err != nil {
+		log.Fatalf("Could not load tasks config file: %s", err)
+	}
+
+	log.Println(config.LocalHttpProxyPort)
+	log.Println(tasksConfig.ExternalIPCheckSite)
+
 	// Check for a server entry string at the cli.  It supercedes the other lists
 	if serverEntryString != "" {
 		decodedServerString, err := psiphon.DecodeServerEntry(serverEntryString)
@@ -63,7 +77,7 @@ func main() {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
 		//Run Tests
-		_, err = RunTests(config, decodedServerString)
+		_, err = RunTests(config, decodedServerString, tasksConfig)
 		if err != nil {
 			log.Fatalf("Could not run tunnel tests: ", err)
 		}
@@ -74,8 +88,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("error loading server entry file: %s", err)
 		}
+
+		decodedServerString, err := psiphon.DecodeServerEntry(serverEntryConfig.Data)
 		// TODO: Remove this
-		log.Println("Server Entry: %s", serverEntryConfig)
+		log.Printf("Server Entry: %s", decodedServerString)
 
 	} else if serverEntryFilename == "" { // Check for server entry file name, if not found try the remote server list
 		log.Printf("No server entry file provided, trying remote server list")

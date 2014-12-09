@@ -6,13 +6,14 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
 )
 
 // RunTests runs all tests to the server conatined in decodedServerEntry
-func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (result string, err error) {
-	testsConfig := new(TestsConfig)
+func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry, tasksConfig *TasksConfig) (result string, err error) {
+	startTime := time.Now()
 
 	pendingConns := new(psiphon.Conns)
 
@@ -21,7 +22,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 		useHttpProxy:  false}
 
 	// Get the untunneled IP address
-	untunneledCheck, err := getSiteResource(testsConfig.ipcheck_site, proxyConfig)
+	untunneledCheck, err := getSiteResource(tasksConfig.ExternalIPCheckSite, proxyConfig)
 	if err != nil {
 		log.Println("Could not get site resource: ", err)
 	}
@@ -41,7 +42,7 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 	}
 
 	proxyConfig.useHttpProxy = true
-	tunneledCheck, err := getSiteResource(testsConfig.ipcheck_site, proxyConfig)
+	tunneledCheck, err := getSiteResource(tasksConfig.ExternalIPCheckSite, proxyConfig)
 	if err != nil {
 		log.Println("Error getting resource: ", err)
 	}
@@ -52,6 +53,10 @@ func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry) (
 	if err != nil {
 		log.Println("Error getting new session: ", err)
 	}
+
+	endTime := time.Now()
+	log.Printf("Run Time: %v", endTime.Sub(startTime))
+
 	return result, err
 
 }
