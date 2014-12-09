@@ -60,15 +60,12 @@ func main() {
 	}
 
 	if tasksConfigFilename == "" {
-		log.Fatalln("No tests file specified.  Set ARG -tests-config")
+		log.Fatalln("No tests file specified.  Set ARG --tests-config")
 	}
 	tasksConfig, err := LoadTasksConfig(tasksConfigFilename)
 	if err != nil {
 		log.Fatalf("Could not load tasks config file: %s", err)
 	}
-
-	log.Println(config.LocalHttpProxyPort)
-	log.Println(tasksConfig.ExternalIPCheckSite)
 
 	// Check for a server entry string at the cli.  It supercedes the other lists
 	if serverEntryString != "" {
