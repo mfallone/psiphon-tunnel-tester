@@ -37,7 +37,7 @@ type ProxyConfig struct {
 
 type TasksConfig struct {
 	ExternalIPCheckSite string
-	DownloadFtile_100MB string
+	LRGDownloadFile     string
 }
 
 //TODO all of LoadServerEntryConfig.  Modelled after psiphon.LoadConfig
