@@ -30,9 +30,10 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"log"
 
-	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
+	"github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
 )
 
 func main() {
@@ -54,9 +55,19 @@ func main() {
 		log.Fatalf("configuration file is required")
 	}
 
-	config, err := psiphon.LoadConfig(configFilename)
+	configFileContents, err := ioutil.ReadFile(configFilename)
 	if err != nil {
 		log.Fatalf("error loading configuration file: %s", err)
+	}
+
+	config, err := psiphon.LoadConfig(configFileContents)
+	if err != nil {
+		log.Fatalf("error loading configuration file: %s", err)
+	}
+
+	err = psiphon.InitDataStore(config.DataStoreFilename)
+	if err != nil {
+		log.Fatalf("error initializing datastore: %s", err)
 	}
 
 	if tasksConfigFilename == "" {
