@@ -5,102 +5,139 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	psiphon "github.com/Psiphon-Labs/psiphon-tunnel-core/psiphon"
 )
 
-// RunTests runs all tests to the server conatined in decodedServerEntry
-func RunTests(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry, tasksConfig *TasksConfig) (result string, err error) {
-	runStartTime := time.Now()
-
-	pendingConns := new(psiphon.Conns)
-
-	proxyConfig := &ProxyConfig{httpProxyAddress: "127.0.0.1",
-		httpProxyPort: config.LocalHttpProxyPort,
-		useHttpProxy:  false}
-
-	// Get the untunneled IP address
-	siteResponse, err := getSiteResource(tasksConfig.ExternalIPCheckSite, proxyConfig)
-	if err != nil {
-		log.Println("Could not get site resource: ", err)
+func sendGETRequest(site string, client *http.Client) (*http.Response, error) {
+	if client == nil {
+		client = &http.Client{}
 	}
 
-	untunneledCheck, err := readResponseBody(siteResponse)
+	req, err := http.NewRequest("GET", site, nil)
 	if err != nil {
-		log.Println("Could not parse body")
+		log.Fatalf("Could not make new GET request: %s", err)
 	}
-	siteResponse.Body.Close()
-	log.Println("Untunneled IP: ", string(untunneledCheck))
 
-	/* Download Files */
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Could not complete GET request: %s")
+	}
+
+	return resp, err
+}
+
+func getExternalIPAddress(site string, client *http.Client) (ip net.IP, err error) {
+
+	resp, err := sendGETRequest(site, client)
+	if err != nil {
+		log.Fatalf("Could not send request: %s", err)
+	}
+	defer resp.Body.Close()
+
+	// Print out a notification if a 200 isn't received
+	if resp.StatusCode != 200 {
+		log.Printf("Status Code: %s", resp.StatusCode)
+	}
+
+	//
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Could not read response body: %s", err)
+	}
+
+	ip = net.ParseIP(strings.TrimSpace(string(body)))
+	if ip == nil {
+		log.Println("Could not parse IP")
+	}
+	log.Println(ip)
+
+	return
+}
+
+// downloadFile will do exactly that.  It will take a website URL and
+// download it to a local file in the current directory.
+// The intent of this test is to check the timing of a tunneled vs untunneled
+// file download
+func downloadFile(site string, client *http.Client, done chan bool) {
+	// a channel will be needed to signal when complete
+
 	startTime := time.Now()
-	siteResponse, err = getSiteResource(tasksConfig.LRGDownloadFile, proxyConfig)
-	outfile, err := os.Create("LRGOutFile.bin")
-	io.Copy(outfile, siteResponse.Body)
-	siteResponse.Body.Close()
-	endTime := time.Now()
-	untunneledDuration := endTime.Sub(startTime)
 
-	/* END TEST */
-
-	// Build a tunnel to a psiphon server
-	tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerEntry)
+	resp, err := sendGETRequest(site, client)
 	if err != nil {
-		log.Fatalf("Could not establish tunnel: %s", err)
+		log.Printf("Error sending request: %s", err)
 	}
+	defer resp.Body.Close()
 
+	outfile, err := os.Create("LRGOutFile.bin")
+	if err != nil {
+		log.Printf("Error creating file: %s", err)
+	}
+	io.Copy(outfile, resp.Body)
+	duration := time.Now().Sub(startTime)
+	log.Printf("Download file duration: %v", duration)
+
+	done <- true
+}
+
+// SetupTasks is called by the main function.  It prepares and runs the tasks
+// TODO have tasks run concurrently.
+func SetupTasks(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry, tasksConfig TasksConfig) {
+	log.Println("Setting up Tasks")
+
+	untunneled := new(TasksResults)
+	untunneled.done = make(chan bool, 1)
+
+	httpTunneled := new(TasksResults)
+	httpTunneled.done = make(chan bool, 1)
+
+	proxyConfig := setProxyConfig("127.0.0.1", 8080, false)
+	untunneled.useProxy = false
+	fmt.Println(proxyConfig.httpProxyAddress)
+
+	// start Psiphon session
+	log.Print("Starting Psiphon Session...")
+	pendingConns := new(psiphon.Conns)
+	tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerEntry)
+	log.Println("Psiphon Tunnel Connected")
 	// Setup new HTTP proxy. Close() is handled by HttpProxy.serve()
 	// and does not need to be called here.
+	log.Println("Setting HTTP Proxy")
 	_, err = psiphon.NewHttpProxy(config, tunnel)
 	if err != nil {
 		log.Fatalf("error initializing local HTTP proxy: %s", err)
 	}
+	httpTunneled.useProxy = true
 
-	proxyConfig.useHttpProxy = true
-	siteResponse, err = getSiteResource(tasksConfig.ExternalIPCheckSite, proxyConfig)
-	if err != nil {
-		log.Println("Error getting resource: ", err)
-	}
+	log.Println("Running tests")
+	go untunneled.Run(tasksConfig, proxyConfig)
+	go httpTunneled.Run(tasksConfig, proxyConfig)
 
-	tunneledCheck, err := readResponseBody(siteResponse)
-	if err != nil {
-		log.Println("Could not read respone body")
-	}
-	siteResponse.Body.Close()
+	<-httpTunneled.done
+	<-untunneled.done
+	log.Println("Tests Completed")
 
-	log.Println("Tunneled IP: ", string(tunneledCheck))
+	log.Printf("Untunneled IP: %s", untunneled.externalIP)
+	log.Printf("Tunneled IP: %s", httpTunneled.externalIP)
 
-	// NewSession test for tunneled handhsake and connected requests.
-	_, err = psiphon.NewSession(config, tunnel)
-	if err != nil {
-		log.Println("Error getting new session: ", err)
-	}
-
-	// Download 100MB file
-	startTime = time.Now()
-	siteResponse, err = getSiteResource(tasksConfig.LRGDownloadFile, proxyConfig)
-	outfile, err = os.Create("LRGOutFile.bin")
-	io.Copy(outfile, siteResponse.Body)
-	siteResponse.Body.Close()
-	endTime = time.Now()
-	tunneledDuration := endTime.Sub(startTime)
-	log.Printf("100MB File Download\nUntunneled: %s\nTunneled: %s", untunneledDuration, tunneledDuration)
-
-	runEndTime := time.Now()
-	log.Printf("Run Duration: %v", runEndTime.Sub(runStartTime))
-	return result, err
+	// go tunneled.Run(config, decodedServerEntry, tasksConfig)
 
 }
 
-// Makes a Get request to a static site resource.
-func getSiteResource(site string, proxyConfig *ProxyConfig) (*http.Response, error) {
+func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig) {
+	// Set client connection to be proxied or not.  Run Tasks.
+
+	// check tasks.useProxy to determine if a proxy should be set.
 	var client *http.Client
 
-	if proxyConfig.useHttpProxy == true {
+	if tasks.useProxy == true { // Set a http proxy.  Some smarter port selection would be good.
 		proxyUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", proxyConfig.httpProxyAddress, proxyConfig.httpProxyPort))
 		if err != nil {
 			log.Fatalf("Could not parse url: ", err)
@@ -110,25 +147,21 @@ func getSiteResource(site string, proxyConfig *ProxyConfig) (*http.Response, err
 		client = &http.Client{}
 	}
 
-	req, err := http.NewRequest("GET", site, nil)
+	// Get a web resource we know serves up our external IP address as a page
+	log.Println("Checking external IP address")
+	external_ip, err := getExternalIPAddress(tasksConfig.ExternalIPCheckSite, client)
 	if err != nil {
-		log.Fatalf("Could not get requested resource: ", err)
+		log.Fatalf("Error getting Exterinal IP: %s", err)
 	}
+	tasks.externalIP = external_ip
 
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Could not complete request: ", err)
-	}
+	// Start file download test
+	//TODO should be done in a go routine so state can be checked while it's running
+	done := make(chan bool, 1)
+	go downloadFile(tasksConfig.LRGDownloadFile, client, done)
+	log.Print("Large file download started")
+	<-done
+	log.Println("....completed")
 
-	return resp, nil
-}
-
-func readResponseBody(resp *http.Response) ([]byte, error) {
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Could not read response body: %s", err)
-	}
-
-	return body, nil
+	tasks.done <- true
 }

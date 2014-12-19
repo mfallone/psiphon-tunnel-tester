@@ -84,11 +84,14 @@ func main() {
 		if err != nil {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
-		//Run Tests
-		_, err = RunTests(config, decodedServerString, tasksConfig)
-		if err != nil {
-			log.Fatalf("Could not run tunnel tests: ", err)
-		}
+		/*
+			//Run Tests
+			_, err = RunTests(config, decodedServerString, tasksConfig)
+			if err != nil {
+				log.Fatalf("Could not run tunnel tests: ", err)
+			}
+		*/
+		SetupTasks(config, decodedServerString, *tasksConfig)
 
 	} else if serverEntryFilename != "" {
 		log.Println("Attempting to use server entry from file")

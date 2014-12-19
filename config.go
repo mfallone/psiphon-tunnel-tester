@@ -22,6 +22,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net"
 	"psiphon"
 	"strings"
 )
@@ -38,6 +39,18 @@ type ProxyConfig struct {
 type TasksConfig struct {
 	ExternalIPCheckSite string
 	LRGDownloadFile     string
+}
+
+type TasksResults struct {
+	Label                 string // untunneled, httpPROXY, socksTunneled
+	externalIP            net.IP
+	largeDownloadFileTime string
+	useProxy              bool
+	done                  chan bool
+}
+
+func setProxyConfig(proxyAddress string, proxyPort int, useProxy bool) ProxyConfig {
+	return ProxyConfig{httpProxyAddress: proxyAddress, httpProxyPort: proxyPort, useHttpProxy: useProxy}
 }
 
 //TODO all of LoadServerEntryConfig.  Modelled after psiphon.LoadConfig
