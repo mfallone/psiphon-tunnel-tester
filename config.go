@@ -44,7 +44,7 @@ type TasksConfig struct {
 type TasksResults struct {
 	Label                 string // untunneled, httpPROXY, socksTunneled
 	externalIP            net.IP
-	largeDownloadFileTime string
+	largeDownloadFileTime chan string
 	useProxy              bool
 	done                  chan bool
 }
