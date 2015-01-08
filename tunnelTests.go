@@ -60,12 +60,17 @@ func getExternalIPAddress(site string, client *http.Client) (ip net.IP, err erro
 	return
 }
 
+func checkWebServer(client *http.Client, decodedServerEntry *psiphon.ServerEntry) {
+	log.Println("blah", decodedServerEntry.WebServerPort, decodedServerEntry.WebServerSecret, decodedServerEntry.WebServerCertificate)
+
+}
+
 // downloadFile will do exactly that.  It will take a website URL and
 // download it to a local file in the current directory.
 // The intent of this test is to check the timing of a tunneled vs untunneled
 // file download
 // TODO the `done` chan should be replaced with one that reports the time duration.  Possibly []bytes
-func downloadFile(site string, outpath string, client *http.Client, done chan string) {
+func downloadFile(site string, outpath string, client *http.Client, done chan int) {
 	// a channel will be needed to signal when complete
 
 	startTime := time.Now()
@@ -84,7 +89,7 @@ func downloadFile(site string, outpath string, client *http.Client, done chan st
 		log.Printf("Error creating file: %s", err)
 	}
 	io.Copy(outfile, resp.Body)
-	duration := time.Now().Sub(startTime).String()
+	duration := int(time.Now().Sub(startTime).Seconds())
 	done <- duration
 }
 
@@ -120,8 +125,8 @@ func SetupTasks(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry,
 	httpTunneled.useProxy = true
 
 	log.Println("Running tests")
-	go untunneled.Run(tasksConfig, proxyConfig)
-	go httpTunneled.Run(tasksConfig, proxyConfig)
+	go untunneled.Run(tasksConfig, proxyConfig, new(psiphon.ServerEntry))
+	go httpTunneled.Run(tasksConfig, proxyConfig, decodedServerEntry)
 
 	<-untunneled.done
 	<-httpTunneled.done
@@ -133,7 +138,7 @@ func SetupTasks(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry,
 
 }
 
-func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig) {
+func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig, decodedServerEntry *psiphon.ServerEntry) {
 	// Set client connection to be proxied or not.  Run Tasks.
 
 	// check tasks.useProxy to determine if a proxy should be set.
@@ -157,14 +162,29 @@ func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig)
 	}
 	tasks.externalIP = external_ip
 
-	// Start file download test
-	tasks.largeDownloadFileTime = make(chan string, 1)
+	// *************************** Start file download test
+	duration := make(chan int, 1)
 	outfile := "./tmp/" + tasks.Label + ".bin"
 
-	go downloadFile(tasksConfig.LRGDownloadFile, outfile, client, tasks.largeDownloadFileTime)
+	go downloadFile(tasksConfig.Download100MB, outfile, client, duration)
 
-	log.Printf("%s: Large file download started", tasks.Label)
-	log.Printf("%s: Large file download complete: %s", tasks.Label, <-tasks.largeDownloadFileTime)
+	log.Printf("%s: Large file download started: %s", tasks.Label, tasksConfig.Download100MB)
+
+	tasks.downloadFileResults = make(map[string]int) // A map to hold the URL and transfer duration (int as seconds)
+
+	tasks.downloadFileResults[tasksConfig.Download100MB] = <-duration // Wait on the channel to return the duration
+
+	log.Printf("%s: Large file download complete: %v", tasks.Label,
+		time.Duration(tasks.downloadFileResults[tasksConfig.Download100MB])*time.Second)
+
+	// **************************** End of file download test
+
+	// **************************** Start test web server handshake
+
+	// We only want to test the webserver if we have a proxyed connection
+	if tasks.useProxy == true {
+		checkWebServer(client, decodedServerEntry)
+	}
 
 	tasks.done <- true
 }

@@ -39,14 +39,16 @@ type ProxyConfig struct {
 type TasksConfig struct {
 	ExternalIPCheckSite string
 	LRGDownloadFile     string
+	Download100MB       string
+	Download1GB         string
 }
 
 type TasksResults struct {
-	Label                 string // untunneled, httpPROXY, socksTunneled
-	externalIP            net.IP
-	largeDownloadFileTime chan string
-	useProxy              bool
-	done                  chan bool
+	Label               string // untunneled, httpPROXY, socksTunneled
+	externalIP          net.IP
+	useProxy            bool
+	downloadFileResults map[string]int // A map of URLs to duration (int).  i.e. http://example.com/largfile.bin : 90
+	done                chan bool
 }
 
 func setProxyConfig(proxyAddress string, proxyPort int, useProxy bool) ProxyConfig {
