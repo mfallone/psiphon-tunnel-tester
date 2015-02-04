@@ -41,13 +41,13 @@ func main() {
 	flag.StringVar(&configFilename, "config", "psiphon.config", "configuration file")
 
 	var serverEntryFilename string
-	flag.StringVar(&serverEntryFilename, "server-list", "server_list.config", "server entry file")
+	flag.StringVar(&serverEntryFilename, "serverList", "server_list.config", "server entry file")
 
-	var serverEntryString string
-	flag.StringVar(&serverEntryString, "server-entry", "", "encoded server entry")
+	var encodedServerEntry string
+	flag.StringVar(&encodedServerEntry, "serverEntry", "", "encoded server entry")
 
 	var tasksConfigFilename string
-	flag.StringVar(&tasksConfigFilename, "tasks-config", "tasks.config", "Tests config file")
+	flag.StringVar(&tasksConfigFilename, "tasksConfig", "tasks.config", "Tests config file")
 
 	flag.Parse()
 
@@ -79,13 +79,17 @@ func main() {
 	}
 
 	// Check for a server entry string at the cli.  It supercedes the other lists
-	if serverEntryString != "" {
-		decodedServerString, err := psiphon.DecodeServerEntry(serverEntryString)
+	if encodedServerEntry != "" {
+		serverEntry, err := psiphon.DecodeServerEntry(encodedServerEntry)
 		if err != nil {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
 
-		SetupTasks(config, decodedServerString, *tasksConfig)
+		if psiphon.ValidateServerEntry(serverEntry) != nil {
+			log.Fatalf("Could not validate server entry")
+		}
+
+		SetupTasks(config, serverEntry, *tasksConfig)
 
 	} else if serverEntryFilename != "" {
 		log.Println("Attempting to use server entry from file")
@@ -94,9 +98,7 @@ func main() {
 			log.Fatalf("error loading server entry file: %s", err)
 		}
 
-		decodedServerString, err := psiphon.DecodeServerEntry(serverEntryConfig.Data)
-		// TODO: Remove this
-		log.Printf("Server Entry: %s", decodedServerString)
+		_, err = psiphon.DecodeServerEntry(serverEntryConfig.Data)
 
 	} else if serverEntryFilename == "" { // Check for server entry file name, if not found try the remote server list
 		log.Printf("No server entry file provided, trying remote server list")

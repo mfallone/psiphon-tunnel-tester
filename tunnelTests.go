@@ -43,7 +43,7 @@ func getExternalIPAddress(site string, client *http.Client) (ip net.IP, err erro
 
 	// Print out a notification if a 200 isn't received
 	if resp.StatusCode != 200 {
-		log.Printf("Status Code: %s", resp.StatusCode)
+		psiphon.NoticeInfo("Status Code: %s", resp.StatusCode)
 	}
 
 	//
@@ -54,14 +54,14 @@ func getExternalIPAddress(site string, client *http.Client) (ip net.IP, err erro
 
 	ip = net.ParseIP(strings.TrimSpace(string(body)))
 	if ip == nil {
-		log.Println("Could not parse IP")
+		psiphon.NoticeInfo("Could not parse IP")
 	}
 
 	return
 }
 
-func checkWebServer(client *http.Client, decodedServerEntry *psiphon.ServerEntry) {
-	log.Println("blah", decodedServerEntry.WebServerPort, decodedServerEntry.WebServerSecret, decodedServerEntry.WebServerCertificate)
+func checkWebServer(client *http.Client, serverEntry *psiphon.ServerEntry) {
+	psiphon.NoticeInfo("blah", serverEntry.WebServerPort, serverEntry.WebServerSecret, serverEntry.WebServerCertificate)
 
 }
 
@@ -95,7 +95,7 @@ func downloadFile(site string, outpath string, client *http.Client, done chan in
 
 // SetupTasks is called by the main function.  It prepares and runs the tasks
 // TODO have tasks run concurrently.
-func SetupTasks(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry, tasksConfig TasksConfig) {
+func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksConfig TasksConfig) {
 	log.Println("Setting up Tasks")
 
 	untunneled := new(TasksResults)
@@ -111,34 +111,47 @@ func SetupTasks(config *psiphon.Config, decodedServerEntry *psiphon.ServerEntry,
 	fmt.Println(proxyConfig.httpProxyAddress)
 
 	// start Psiphon session
-	log.Print("Starting Psiphon Session...")
+	psiphon.NoticeInfo("starting psiphon session")
 	pendingConns := new(psiphon.Conns)
-	tunnel, err := psiphon.EstablishTunnel(config, pendingConns, decodedServerEntry)
-	log.Println("Psiphon Tunnel Connected")
+	sessionId, err := psiphon.MakeSessionId()
+	if err != nil {
+		log.Fatalf("Could not create sessionId: %s", err)
+	}
+
+	tunnelController, nil := psiphon.NewController(config) //TODO replace this with a dummy controller object
+
+	tunnel, err := psiphon.EstablishTunnel(
+		config,
+		sessionId,
+		pendingConns,
+		serverEntry,
+		tunnelController)
+
+	psiphon.NoticeInfo("Psiphon tunnel conneted")
 	// Setup new HTTP proxy. Close() is handled by HttpProxy.serve()
 	// and does not need to be called here.
-	log.Println("Setting HTTP Proxy")
+	psiphon.NoticeInfo("Setting HTTP Proxy")
 	_, err = psiphon.NewHttpProxy(config, tunnel)
 	if err != nil {
 		log.Fatalf("error initializing local HTTP proxy: %s", err)
 	}
 	httpTunneled.useProxy = true
 
-	log.Println("Running tests")
+	psiphon.NoticeInfo("Running tests")
 	go untunneled.Run(tasksConfig, proxyConfig, new(psiphon.ServerEntry))
-	go httpTunneled.Run(tasksConfig, proxyConfig, decodedServerEntry)
+	go httpTunneled.Run(tasksConfig, proxyConfig, serverEntry)
 
 	<-untunneled.done
 	<-httpTunneled.done
 
-	log.Println("Tests Completed")
+	psiphon.NoticeInfo("Tests Completed")
 
-	log.Printf("Untunneled IP: %s", untunneled.externalIP)
-	log.Printf("Tunneled IP: %s", httpTunneled.externalIP)
+	psiphon.NoticeInfo("Untunneled IP: %s", untunneled.externalIP)
+	psiphon.NoticeInfo("Tunneled IP: %s", httpTunneled.externalIP)
 
 }
 
-func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig, decodedServerEntry *psiphon.ServerEntry) {
+func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig, serverEntry *psiphon.ServerEntry) {
 	// Set client connection to be proxied or not.  Run Tasks.
 
 	// check tasks.useProxy to determine if a proxy should be set.
@@ -155,7 +168,7 @@ func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig,
 	}
 
 	// Get a web resource we know serves up our external IP address as a page
-	log.Printf("%s: Checking external IP address..", tasks.Label)
+	psiphon.NoticeInfo("%s: Checking external IP address..", tasks.Label)
 	external_ip, err := getExternalIPAddress(tasksConfig.ExternalIPCheckSite, client)
 	if err != nil {
 		log.Fatalf("%s: Error getting Exterinal IP: %s", tasks.Label, err)
@@ -168,13 +181,13 @@ func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig,
 
 	go downloadFile(tasksConfig.Download100MB, outfile, client, duration)
 
-	log.Printf("%s: Large file download started: %s", tasks.Label, tasksConfig.Download100MB)
+	psiphon.NoticeInfo("%s: Large file download started: %s", tasks.Label, tasksConfig.Download100MB)
 
 	tasks.downloadFileResults = make(map[string]int) // A map to hold the URL and transfer duration (int as seconds)
 
 	tasks.downloadFileResults[tasksConfig.Download100MB] = <-duration // Wait on the channel to return the duration
 
-	log.Printf("%s: Large file download complete: %v", tasks.Label,
+	psiphon.NoticeInfo("%s: Large file download complete: %v", tasks.Label,
 		time.Duration(tasks.downloadFileResults[tasksConfig.Download100MB])*time.Second)
 
 	// **************************** End of file download test
@@ -183,7 +196,7 @@ func (tasks *TasksResults) Run(tasksConfig TasksConfig, proxyConfig ProxyConfig,
 
 	// We only want to test the webserver if we have a proxyed connection
 	if tasks.useProxy == true {
-		checkWebServer(client, decodedServerEntry)
+		checkWebServer(client, serverEntry)
 	}
 
 	tasks.done <- true
