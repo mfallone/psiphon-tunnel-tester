@@ -96,7 +96,6 @@ func downloadFile(site string, outpath string, client *http.Client, done chan in
 // SetupTasks is called by the main function.  It prepares and runs the tasks
 // TODO have tasks run concurrently.
 func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksConfig TasksConfig) {
-	log.Println("Setting up Tasks")
 
 	untunneled := new(TasksResults)
 	untunneled.Label = "UNTUNNELED"
@@ -108,7 +107,6 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 
 	proxyConfig := setProxyConfig("127.0.0.1", 8080, false)
 	untunneled.useProxy = false
-	fmt.Println(proxyConfig.httpProxyAddress)
 
 	// start Psiphon session
 	psiphon.NoticeInfo("starting psiphon session")
