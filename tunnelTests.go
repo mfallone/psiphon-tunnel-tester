@@ -93,6 +93,22 @@ func downloadFile(site string, outpath string, client *http.Client, done chan in
 	done <- duration
 }
 
+func checkServerCapability(capabilityString string, serverEntry *psiphon.ServerEntry) (found bool) {
+	for _, capability := range serverEntry.Capabilities {
+		if capability == capabilityString {
+			return true
+		}
+	}
+	return false
+}
+
+func doPreTunnelChecks(serverEntry *psiphon.ServerEntry, config *psiphon.Config, tunnel *psiphon.Tunnel, sessionId string) {
+	//Check if handshake is enabled
+	if checkServerCapability("handshake", serverEntry) {
+		//Work with session
+	}
+}
+
 // SetupTasks is called by the main function.  It prepares and runs the tasks
 // TODO have tasks run concurrently.
 func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksConfig TasksConfig) {
@@ -108,7 +124,6 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 	proxyConfig := setProxyConfig("127.0.0.1", 8080, false)
 	untunneled.useProxy = false
 
-	// start Psiphon session
 	psiphon.NoticeInfo("starting psiphon session")
 	pendingConns := new(psiphon.Conns)
 	sessionId, err := psiphon.MakeSessionId()
@@ -116,9 +131,17 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 		log.Fatalf("Could not create sessionId: %s", err)
 	}
 
+	//*************************************************************************
+	//TODO Pre EstablishTunnel work
+	tunnel := &psiphon.Tunnel{}
+
+	psiphon.NoticeInfo("server supports capabilities: %s", serverEntry.Capabilities)
+	doPreTunnelChecks(serverEntry, config, tunnel, sessionId)
+
+	// start Psiphon session
 	tunnelController, nil := psiphon.NewController(config) //TODO replace this with a dummy controller object
 
-	tunnel, err := psiphon.EstablishTunnel(
+	tunnel, err = psiphon.EstablishTunnel(
 		config,
 		sessionId,
 		pendingConns,
