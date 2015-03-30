@@ -107,6 +107,15 @@ func doPreTunnelChecks(serverEntry *psiphon.ServerEntry, config *psiphon.Config,
 	if checkServerCapability("handshake", serverEntry) {
 		//Work with session
 	}
+	if len(serverEntry.MeekFrontingAddresses) == 0 && serverEntry.MeekFrontingDomain != "" {
+		serverEntry = psiphon.MakeCompatibleServerEntry(serverEntry)
+	}
+}
+
+func showServerDetails(serverEntry *psiphon.ServerEntry) (err error) {
+	fmt.Printf("Details: %v, %v, %v\n", serverEntry.MeekFrontingHost, serverEntry.IpAddress, serverEntry.MeekFrontingAddresses)
+
+	return err
 }
 
 // SetupTasks is called by the main function.  It prepares and runs the tasks
@@ -124,7 +133,7 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 	proxyConfig := setProxyConfig("127.0.0.1", 8080, false)
 	untunneled.useProxy = false
 
-	psiphon.NoticeInfo("starting psiphon session")
+	psiphon.NoticeInfo("Starting Psiphon session")
 	pendingConns := new(psiphon.Conns)
 	sessionId, err := psiphon.MakeSessionId()
 	if err != nil {
@@ -135,7 +144,11 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 	//TODO Pre EstablishTunnel work
 	tunnel := &psiphon.Tunnel{}
 
-	psiphon.NoticeInfo("server supports capabilities: %s", serverEntry.Capabilities)
+	err = showServerDetails(serverEntry)
+	if err != nil {
+		panic(err)
+	}
+
 	doPreTunnelChecks(serverEntry, config, tunnel, sessionId)
 
 	// start Psiphon session
@@ -148,13 +161,18 @@ func SetupTasks(config *psiphon.Config, serverEntry *psiphon.ServerEntry, tasksC
 		serverEntry,
 		tunnelController)
 
-	psiphon.NoticeInfo("Psiphon tunnel conneted")
+	if err != nil {
+		psiphon.NoticeInfo("failed to connect to %s: %s", serverEntry.IpAddress, err)
+		panic(err)
+	}
+
+	psiphon.NoticeInfo("Psiphon tunnel connected.")
 	// Setup new HTTP proxy. Close() is handled by HttpProxy.serve()
 	// and does not need to be called here.
 	psiphon.NoticeInfo("Setting HTTP Proxy")
 	_, err = psiphon.NewHttpProxy(config, tunnel)
 	if err != nil {
-		log.Fatalf("error initializing local HTTP proxy: %s", err)
+		log.Fatalf("Error initializing local HTTP proxy: %s", err)
 	}
 	httpTunneled.useProxy = true
 
