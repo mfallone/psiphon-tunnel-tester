@@ -61,7 +61,7 @@ func getExternalIPAddress(site string, client *http.Client) (ip net.IP, err erro
 }
 
 func checkWebServer(client *http.Client, serverEntry *psiphon.ServerEntry) {
-	psiphon.NoticeInfo("blah", serverEntry.WebServerPort, serverEntry.WebServerSecret, serverEntry.WebServerCertificate)
+	psiphon.NoticeInfo("Webserver checks: ", serverEntry.WebServerPort, serverEntry.WebServerSecret, serverEntry.WebServerCertificate)
 
 }
 
