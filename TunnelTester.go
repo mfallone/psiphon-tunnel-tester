@@ -78,9 +78,11 @@ func main() {
 		log.Fatalf("Could not load tasks config file: %s", err)
 	}
 
+	serverEntry := new(psiphon.ServerEntry)
+
 	// Check for a server entry string at the cli.  It supercedes the other lists
 	if encodedServerEntry != "" {
-		serverEntry, err := psiphon.DecodeServerEntry(encodedServerEntry)
+		serverEntry, err = psiphon.DecodeServerEntry(encodedServerEntry)
 		if err != nil {
 			log.Fatalf("Invalid server entry, %s", err)
 		}
@@ -89,7 +91,7 @@ func main() {
 			log.Fatalf("Could not validate server entry")
 		}
 
-		SetupTasks(config, serverEntry, *tasksConfig)
+		//SetupTasks(config, serverEntry, *tasksConfig)
 
 	} else if serverEntryFilename != "" {
 		log.Println("Attempting to use server entry from file")
@@ -100,18 +102,14 @@ func main() {
 
 		_, err = psiphon.DecodeServerEntry(serverEntryConfig.Data)
 
-	} else if serverEntryFilename == "" { // Check for server entry file name, if not found try the remote server list
-		log.Printf("No server entry file provided, trying remote server list")
-		if config.RemoteServerListUrl == "" {
-			log.Fatalf("No remote server list found")
-		} else {
-			// TODO load remote server list
-			/*
-				err := psiphon.FetchRemoteServerList(config, pendingConns)
-				if err != nil {
-					log.Fatalf("failed to fetch remote server list: %s", err)
-				}
-			*/
+	} else if config.TargetServerEntry != "" {
+		serverEntry, err = psiphon.DecodeServerEntry(config.TargetServerEntry)
+		if err != nil {
+			log.Fatalf("Could not load TargetServerEntry from config: Error: %v", err)
 		}
+	}
+
+	if config != nil && serverEntry != nil && tasksConfig != nil {
+		SetupTasks(config, serverEntry, *tasksConfig)
 	}
 }
